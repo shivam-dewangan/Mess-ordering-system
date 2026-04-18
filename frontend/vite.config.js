@@ -7,11 +7,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'https://mess-ordering-system.onrender.com',
         changeOrigin: true
       },
       '/socket.io': {
-        target: 'http://localhost:5001',
+        target: 'https://mess-ordering-system.onrender.com',
         ws: true
       }
     }
