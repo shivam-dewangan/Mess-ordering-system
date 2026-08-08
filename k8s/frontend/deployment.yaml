@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mess-frontend
+  namespace: mess-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mess-frontend
+  template:
+    metadata:
+      labels:
+        app: mess-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: shivamaws2005/mess-frontend:v1.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
