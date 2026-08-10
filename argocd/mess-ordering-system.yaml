@@ -1,6 +1,5 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
-
 metadata:
   name: mess-ordering-system
   namespace: argocd
