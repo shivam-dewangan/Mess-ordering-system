@@ -20,6 +20,7 @@ jobs:
   # ============================================================
   # BACKEND CI
   # ============================================================
+
   backend-ci:
     name: Backend CI
     runs-on: ubuntu-latest
@@ -52,6 +53,7 @@ jobs:
   # ============================================================
   # FRONTEND CI
   # ============================================================
+
   frontend-ci:
     name: Frontend CI
     runs-on: ubuntu-latest
@@ -79,8 +81,9 @@ jobs:
 
 
   # ============================================================
-  # VERSION + RELEASE
+  # SEMANTIC VERSION + GITHUB RELEASE
   # ============================================================
+
   release:
     name: Semantic Version Release
     runs-on: ubuntu-latest
@@ -103,10 +106,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ----------------------------------------------------------
-      # Calculate Semantic Version
-      # ----------------------------------------------------------
-      - name: Calculate version
+      - name: Calculate semantic version
         id: version
         shell: bash
         run: |
@@ -133,7 +133,7 @@ jobs:
           echo "$COMMIT_MESSAGE"
 
           # ------------------------------------------------------
-          # MAJOR
+          # MAJOR RELEASE
           # ------------------------------------------------------
 
           if echo "$COMMIT_MESSAGE" | grep -qE 'BREAKING CHANGE|^[a-zA-Z]+(\(.+\))?!:'; then
@@ -143,7 +143,7 @@ jobs:
             PATCH=0
 
           # ------------------------------------------------------
-          # MINOR
+          # MINOR RELEASE
           # ------------------------------------------------------
 
           elif echo "$COMMIT_MESSAGE" | grep -qE '^feat(\(.+\))?:'; then
@@ -152,7 +152,7 @@ jobs:
             PATCH=0
 
           # ------------------------------------------------------
-          # PATCH
+          # PATCH RELEASE
           # ------------------------------------------------------
 
           elif echo "$COMMIT_MESSAGE" | grep -qE '^fix(\(.+\))?:'; then
@@ -185,14 +185,17 @@ jobs:
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$NEW_TAG"
 
+
       # ----------------------------------------------------------
-      # Create Git Tag
+      # CREATE GIT TAG
       # ----------------------------------------------------------
+
       - name: Create Git tag
         if: steps.version.outputs.released == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
+
         run: |
 
           git config user.name "github-actions[bot]"
@@ -202,15 +205,18 @@ jobs:
 
           git push origin "$TAG"
 
+
       # ----------------------------------------------------------
-      # Create GitHub Release
+      # CREATE GITHUB RELEASE
       # ----------------------------------------------------------
+
       - name: Create GitHub Release
         if: steps.version.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
+
         run: |
 
           gh release create "$TAG" \
@@ -221,6 +227,7 @@ jobs:
   # ============================================================
   # DOCKER BUILD + PUSH
   # ============================================================
+
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
@@ -232,43 +239,133 @@ jobs:
 
     steps:
 
+      # ----------------------------------------------------------
+      # Checkout RELEASE TAG
+      # ----------------------------------------------------------
+
       - name: Checkout released version
         uses: actions/checkout@v5
         with:
           ref: ${{ needs.release.outputs.tag }}
+          fetch-depth: 0
+
+
+      # ----------------------------------------------------------
+      # Setup Docker Buildx
+      # ----------------------------------------------------------
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+
       # ----------------------------------------------------------
       # Docker Hub Login
       # ----------------------------------------------------------
+
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+
       # ----------------------------------------------------------
-      # Backend
+      # BUILD + PUSH BACKEND
       # ----------------------------------------------------------
+
       - name: Build and Push Backend
         uses: docker/build-push-action@v6
+
         with:
           context: ./backend
           push: true
+
           tags: |
             ${{ env.DOCKERHUB_USERNAME }}/mess-backend:${{ needs.release.outputs.version }}
             ${{ env.DOCKERHUB_USERNAME }}/mess-backend:latest
 
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+
       # ----------------------------------------------------------
-      # Frontend
+      # BUILD + PUSH FRONTEND
       # ----------------------------------------------------------
+
       - name: Build and Push Frontend
         uses: docker/build-push-action@v6
+
         with:
           context: ./frontend
           push: true
+
           tags: |
             ${{ env.DOCKERHUB_USERNAME }}/mess-frontend:${{ needs.release.outputs.version }}
             ${{ env.DOCKERHUB_USERNAME }}/mess-frontend:latest
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+
+      # ==========================================================
+      # GITOPS — UPDATE KUBERNETES MANIFESTS
+      # ==========================================================
+
+      - name: Checkout main branch for GitOps update
+        uses: actions/checkout@v5
+
+        with:
+          ref: main
+          fetch-depth: 0
+
+
+      - name: Update Kubernetes image versions
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+
+        run: |
+
+          echo "Updating Kubernetes images to version ${VERSION}"
+
+          sed -i \
+            "s#image: shivamaws2005/mess-backend:.*#image: shivamaws2005/mess-backend:${VERSION}#g" \
+            k8s/backend/deployment.yaml
+
+          sed -i \
+            "s#image: shivamaws2005/mess-frontend:.*#image: shivamaws2005/mess-frontend:${VERSION}#g" \
+            k8s/frontend/deployment.yaml
+
+          echo ""
+          echo "Backend image:"
+          grep "image:" k8s/backend/deployment.yaml
+
+          echo ""
+          echo "Frontend image:"
+          grep "image:" k8s/frontend/deployment.yaml
+
+
+      # ----------------------------------------------------------
+      # COMMIT KUBERNETES MANIFEST CHANGES
+      # ----------------------------------------------------------
+
+      - name: Commit GitOps changes
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+
+        run: |
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add k8s/backend/deployment.yaml
+          git add k8s/frontend/deployment.yaml
+
+          if git diff --cached --quiet; then
+            echo "No Kubernetes changes detected."
+            exit 0
+          fi
+
+          git commit \
+            -m "chore: deploy version ${VERSION} [skip ci]"
+
+          git push origin main
