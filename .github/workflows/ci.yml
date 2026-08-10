@@ -1,14 +1,21 @@
-name: Mess Ordering System CI/CD
+name: Mess Ordering System CI
 
 on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
 
+
 jobs:
+
+  # ==========================================
+  # BACKEND CI
+  # ==========================================
+
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
@@ -18,6 +25,7 @@ jobs:
         working-directory: backend
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
@@ -34,6 +42,11 @@ jobs:
       - name: Verify backend
         run: node --check server.js
 
+
+  # ==========================================
+  # FRONTEND CI
+  # ==========================================
+
   frontend:
     name: Frontend CI
     runs-on: ubuntu-latest
@@ -43,6 +56,7 @@ jobs:
         working-directory: frontend
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
@@ -59,20 +73,49 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-    docker:
+
+  # ==========================================
+  # DOCKER BUILD + PUSH
+  # ==========================================
+
+  docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+
     needs:
       - backend
       - frontend
 
+    # Only push Docker images when code is
+    # actually pushed to main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     steps:
+
+      # ----------------------------------------
+      # Checkout
+      # ----------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
+
+      # ----------------------------------------
+      # Generate Git SHA image tag
+      # ----------------------------------------
+
       - name: Generate image tag
         id: meta
-        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+          echo "Docker image tag:"
+          echo "${GITHUB_SHA::7}"
+
+
+      # ----------------------------------------
+      # Docker Hub Login
+      # ----------------------------------------
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -80,24 +123,53 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build backend image
+
+      # ========================================
+      # BACKEND IMAGE
+      # ========================================
+
+      - name: Build backend Docker image
         run: |
           docker build \
             -t shivamaws2005/mess-backend:${{ steps.meta.outputs.tag }} \
             ./backend
 
-      - name: Push backend image
+      - name: Push backend Docker image
         run: |
           docker push \
             shivamaws2005/mess-backend:${{ steps.meta.outputs.tag }}
 
-      - name: Build frontend image
+
+      # ========================================
+      # FRONTEND IMAGE
+      # ========================================
+
+      - name: Build frontend Docker image
         run: |
           docker build \
             -t shivamaws2005/mess-frontend:${{ steps.meta.outputs.tag }} \
             ./frontend
 
-      - name: Push frontend image
+      - name: Push frontend Docker image
         run: |
           docker push \
             shivamaws2005/mess-frontend:${{ steps.meta.outputs.tag }}
+
+
+      # ----------------------------------------
+      # Show final images
+      # ----------------------------------------
+
+      - name: Display pushed images
+        run: |
+          echo "======================================"
+          echo "Docker images pushed successfully"
+          echo "======================================"
+
+          echo "Backend:"
+          echo "shivamaws2005/mess-backend:${{ steps.meta.outputs.tag }}"
+
+          echo ""
+
+          echo "Frontend:"
+          echo "shivamaws2005/mess-frontend:${{ steps.meta.outputs.tag }}"
