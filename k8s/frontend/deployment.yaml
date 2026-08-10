@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: shivamaws2005/mess-frontend:v1.0.1
+          image: shivamaws2005/mess-frontend:1d527e8
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
