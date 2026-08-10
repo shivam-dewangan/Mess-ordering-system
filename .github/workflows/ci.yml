@@ -1,4 +1,4 @@
-name: Mess Ordering System CI
+name: Mess Ordering System CI/CD
 
 on:
   push:
@@ -58,3 +58,40 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  docker:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -t shivamaws2005/mess-backend:v1.0.0 \
+            ./backend
+
+      - name: Push backend image
+        run: |
+          docker push shivamaws2005/mess-backend:v1.0.0
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t shivamaws2005/mess-frontend:v1.0.1 \
+            ./frontend
+
+      - name: Push frontend image
+        run: |
+          docker push shivamaws2005/mess-frontend:v1.0.1
