@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: shivamaws2005/mess-backend:v1.0.0
+          image: shivamaws2005/mess-backend:1d527e8
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5001
