@@ -39,7 +39,7 @@ const fillDemo = (type) => {
       <div className="auth-card fade-in">
         <div className="auth-header">
           <div className="auth-logo">🍱</div>
-          <h1>CampusEats -A</h1>
+          <h1>CampusEats -Easy</h1>
           <p>Order from your campus mess & cafeteria</p>
         </div>
 
