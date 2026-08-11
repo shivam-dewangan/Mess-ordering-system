@@ -1,4 +1,4 @@
-```yaml
+
 name: CI/CD
 
 on:
@@ -398,4 +398,3 @@ jobs:
           echo "GitOps update pushed successfully."
           echo "Version: ${VERSION}"
           echo "=========================================="
-```
