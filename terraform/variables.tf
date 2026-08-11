@@ -16,38 +16,32 @@ variable "environment" {
   default     = "production"
 }
 
-variable "cluster_version" {
+variable "cluster_name" {
+  description = "EKS cluster name"
+  type        = string
+  default     = "mess-ordering-eks"
+}
+
+variable "kubernetes_version" {
   description = "EKS Kubernetes version"
   type        = string
   default     = "1.33"
 }
 
-variable "node_instance_type" {
-  description = "EKS worker node instance type"
+variable "vpc_cidr" {
+  description = "VPC CIDR"
   type        = string
-  default     = "c7i-flex.large"
+  default     = "10.0.0.0/16"
 }
 
-variable "desired_nodes" {
-  description = "Desired worker nodes"
-  type        = number
-  default     = 1
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
+  type        = string
+  sensitive   = true
 }
 
-variable "min_nodes" {
-  description = "Minimum worker nodes"
-  type        = number
-  default     = 1
-}
-
-variable "max_nodes" {
-  description = "Maximum worker nodes"
-  type        = number
-  default     = 2
-}
-
-variable "root_volume_size" {
-  description = "Worker node root EBS volume in GB"
-  type        = number
-  default     = 30
+variable "lambda_runtime" {
+  description = "Lambda runtime"
+  type        = string
+  default     = "nodejs22.x"
 }
