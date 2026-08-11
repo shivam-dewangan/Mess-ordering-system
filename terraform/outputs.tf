@@ -26,13 +26,6 @@ output "public_subnets" {
   value = module.vpc.public_subnets
 }
 
-output "backend_ecr_repository" {
-  value = aws_ecr_repository.backend.repository_url
-}
-
-output "frontend_ecr_repository" {
-  value = aws_ecr_repository.frontend.repository_url
-}
 
 output "lambda_function_name" {
   value = aws_lambda_function.mess.function_name
