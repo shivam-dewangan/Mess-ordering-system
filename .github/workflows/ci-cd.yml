@@ -1,3 +1,4 @@
+```yaml
 name: CI/CD
 
 on:
@@ -101,15 +102,26 @@ jobs:
 
     steps:
 
+      # ----------------------------------------------------------
+      # CHECKOUT FULL HISTORY
+      # ----------------------------------------------------------
+
       - name: Checkout full history
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+
+      # ----------------------------------------------------------
+      # CALCULATE SEMANTIC VERSION
+      # ----------------------------------------------------------
+
       - name: Calculate semantic version
         id: version
         shell: bash
         run: |
+
+          set -e
 
           git fetch --tags --force
 
@@ -178,8 +190,10 @@ jobs:
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           NEW_TAG="v${NEW_VERSION}"
 
-          echo "New version: $NEW_VERSION"
-          echo "New tag: $NEW_TAG"
+          echo "=========================================="
+          echo "NEW VERSION : $NEW_VERSION"
+          echo "NEW TAG     : $NEW_TAG"
+          echo "=========================================="
 
           echo "released=true" >> "$GITHUB_OUTPUT"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
@@ -194,12 +208,23 @@ jobs:
         if: steps.version.outputs.released == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          TAG: ${{ steps.version.outputs.tag }}
-
         run: |
+
+          set -e
+
+          TAG="v${VERSION}"
+
+          echo "Creating Git tag:"
+          echo "VERSION=$VERSION"
+          echo "TAG=$TAG"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "ERROR: Tag $TAG already exists."
+            exit 1
+          fi
 
           git tag -a "$TAG" -m "Release $VERSION"
 
@@ -214,10 +239,14 @@ jobs:
         if: steps.version.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
-
         run: |
+
+          set -e
+
+          TAG="v${VERSION}"
+
+          echo "Creating GitHub Release $TAG"
 
           gh release create "$TAG" \
             --title "Release $VERSION" \
@@ -270,12 +299,11 @@ jobs:
 
 
       # ----------------------------------------------------------
-      # BACKEND IMAGE
+      # BUILD + PUSH BACKEND
       # ----------------------------------------------------------
 
       - name: Build and Push Backend
         uses: docker/build-push-action@v6
-
         with:
           context: ./backend
           push: true
@@ -289,12 +317,11 @@ jobs:
 
 
       # ----------------------------------------------------------
-      # FRONTEND IMAGE
+      # BUILD + PUSH FRONTEND
       # ----------------------------------------------------------
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v6
-
         with:
           context: ./frontend
           push: true
@@ -308,7 +335,7 @@ jobs:
 
 
       # ==========================================================
-      # GITOPS — UPDATE IMAGE TAGS
+      # GITOPS — UPDATE KUBERNETES IMAGE TAGS
       # ==========================================================
 
       - name: Update Kubernetes image versions
@@ -317,7 +344,9 @@ jobs:
 
         run: |
 
-          echo "Updating Kubernetes images to ${VERSION}"
+          set -e
+
+          echo "Updating Kubernetes images to version ${VERSION}"
 
           sed -i \
             "s#image: shivamaws2005/mess-backend:.*#image: shivamaws2005/mess-backend:${VERSION}#g" \
@@ -327,14 +356,17 @@ jobs:
             "s#image: shivamaws2005/mess-frontend:.*#image: shivamaws2005/mess-frontend:${VERSION}#g" \
             k8s/frontend/deployment.yaml
 
-          echo "Updated images:"
-
+          echo ""
+          echo "Backend image:"
           grep "image:" k8s/backend/deployment.yaml
+
+          echo ""
+          echo "Frontend image:"
           grep "image:" k8s/frontend/deployment.yaml
 
 
       # ==========================================================
-      # COMMIT GITOPS CHANGE
+      # COMMIT + PUSH GITOPS CHANGE
       # ==========================================================
 
       - name: Commit and Push GitOps update
@@ -343,6 +375,8 @@ jobs:
 
         run: |
 
+          set -e
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -350,7 +384,7 @@ jobs:
           git add k8s/frontend/deployment.yaml
 
           if git diff --cached --quiet; then
-            echo "No Kubernetes manifest changes."
+            echo "No Kubernetes manifest changes detected."
             exit 0
           fi
 
@@ -359,4 +393,9 @@ jobs:
 
           git push origin main
 
+          echo ""
+          echo "=========================================="
           echo "GitOps update pushed successfully."
+          echo "Version: ${VERSION}"
+          echo "=========================================="
+```
