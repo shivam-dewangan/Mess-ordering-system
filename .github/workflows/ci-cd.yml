@@ -133,7 +133,7 @@ jobs:
           echo "$COMMIT_MESSAGE"
 
           # ------------------------------------------------------
-          # MAJOR RELEASE
+          # MAJOR
           # ------------------------------------------------------
 
           if echo "$COMMIT_MESSAGE" | grep -qE 'BREAKING CHANGE|^[a-zA-Z]+(\(.+\))?!:'; then
@@ -143,7 +143,7 @@ jobs:
             PATCH=0
 
           # ------------------------------------------------------
-          # MINOR RELEASE
+          # MINOR
           # ------------------------------------------------------
 
           elif echo "$COMMIT_MESSAGE" | grep -qE '^feat(\(.+\))?:'; then
@@ -152,7 +152,7 @@ jobs:
             PATCH=0
 
           # ------------------------------------------------------
-          # PATCH RELEASE
+          # PATCH
           # ------------------------------------------------------
 
           elif echo "$COMMIT_MESSAGE" | grep -qE '^fix(\(.+\))?:'; then
@@ -225,11 +225,11 @@ jobs:
 
 
   # ============================================================
-  # DOCKER BUILD + PUSH
+  # DOCKER BUILD + PUSH + GITOPS
   # ============================================================
 
   docker:
-    name: Build and Push Docker Images
+    name: Build Push and Update GitOps
     runs-on: ubuntu-latest
 
     needs:
@@ -240,18 +240,18 @@ jobs:
     steps:
 
       # ----------------------------------------------------------
-      # Checkout RELEASE TAG
+      # CHECKOUT MAIN
       # ----------------------------------------------------------
 
-      - name: Checkout released version
+      - name: Checkout main branch
         uses: actions/checkout@v5
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: main
           fetch-depth: 0
 
 
       # ----------------------------------------------------------
-      # Setup Docker Buildx
+      # SETUP DOCKER BUILDX
       # ----------------------------------------------------------
 
       - name: Setup Docker Buildx
@@ -259,7 +259,7 @@ jobs:
 
 
       # ----------------------------------------------------------
-      # Docker Hub Login
+      # DOCKER HUB LOGIN
       # ----------------------------------------------------------
 
       - name: Login to Docker Hub
@@ -270,7 +270,7 @@ jobs:
 
 
       # ----------------------------------------------------------
-      # BUILD + PUSH BACKEND
+      # BACKEND IMAGE
       # ----------------------------------------------------------
 
       - name: Build and Push Backend
@@ -289,7 +289,7 @@ jobs:
 
 
       # ----------------------------------------------------------
-      # BUILD + PUSH FRONTEND
+      # FRONTEND IMAGE
       # ----------------------------------------------------------
 
       - name: Build and Push Frontend
@@ -308,16 +308,8 @@ jobs:
 
 
       # ==========================================================
-      # GITOPS — UPDATE KUBERNETES MANIFESTS
+      # GITOPS — UPDATE IMAGE TAGS
       # ==========================================================
-
-      - name: Checkout main branch for GitOps update
-        uses: actions/checkout@v5
-
-        with:
-          ref: main
-          fetch-depth: 0
-
 
       - name: Update Kubernetes image versions
         env:
@@ -325,7 +317,7 @@ jobs:
 
         run: |
 
-          echo "Updating Kubernetes images to version ${VERSION}"
+          echo "Updating Kubernetes images to ${VERSION}"
 
           sed -i \
             "s#image: shivamaws2005/mess-backend:.*#image: shivamaws2005/mess-backend:${VERSION}#g" \
@@ -335,20 +327,17 @@ jobs:
             "s#image: shivamaws2005/mess-frontend:.*#image: shivamaws2005/mess-frontend:${VERSION}#g" \
             k8s/frontend/deployment.yaml
 
-          echo ""
-          echo "Backend image:"
-          grep "image:" k8s/backend/deployment.yaml
+          echo "Updated images:"
 
-          echo ""
-          echo "Frontend image:"
+          grep "image:" k8s/backend/deployment.yaml
           grep "image:" k8s/frontend/deployment.yaml
 
 
-      # ----------------------------------------------------------
-      # COMMIT KUBERNETES MANIFEST CHANGES
-      # ----------------------------------------------------------
+      # ==========================================================
+      # COMMIT GITOPS CHANGE
+      # ==========================================================
 
-      - name: Commit GitOps changes
+      - name: Commit and Push GitOps update
         env:
           VERSION: ${{ needs.release.outputs.version }}
 
@@ -361,7 +350,7 @@ jobs:
           git add k8s/frontend/deployment.yaml
 
           if git diff --cached --quiet; then
-            echo "No Kubernetes changes detected."
+            echo "No Kubernetes manifest changes."
             exit 0
           fi
 
@@ -369,3 +358,5 @@ jobs:
             -m "chore: deploy version ${VERSION} [skip ci]"
 
           git push origin main
+
+          echo "GitOps update pushed successfully."
