@@ -1,4 +1,4 @@
-
+```yaml
 name: CI/CD
 
 on:
@@ -102,9 +102,9 @@ jobs:
 
     steps:
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # CHECKOUT FULL HISTORY
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Checkout full history
         uses: actions/checkout@v5
@@ -112,15 +112,14 @@ jobs:
           fetch-depth: 0
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # CALCULATE SEMANTIC VERSION
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Calculate semantic version
         id: version
         shell: bash
         run: |
-
           set -e
 
           git fetch --tags --force
@@ -144,39 +143,35 @@ jobs:
           echo "Commit message:"
           echo "$COMMIT_MESSAGE"
 
-          # ------------------------------------------------------
-          # MAJOR
-          # ------------------------------------------------------
+          # ----------------------------------------------------
+          # MAJOR RELEASE
+          # ----------------------------------------------------
 
           if echo "$COMMIT_MESSAGE" | grep -qE 'BREAKING CHANGE|^[a-zA-Z]+(\(.+\))?!:'; then
-
             MAJOR=$((MAJOR + 1))
             MINOR=0
             PATCH=0
 
-          # ------------------------------------------------------
-          # MINOR
-          # ------------------------------------------------------
+          # ----------------------------------------------------
+          # MINOR RELEASE
+          # ----------------------------------------------------
 
           elif echo "$COMMIT_MESSAGE" | grep -qE '^feat(\(.+\))?:'; then
-
             MINOR=$((MINOR + 1))
             PATCH=0
 
-          # ------------------------------------------------------
-          # PATCH
-          # ------------------------------------------------------
+          # ----------------------------------------------------
+          # PATCH RELEASE
+          # ----------------------------------------------------
 
           elif echo "$COMMIT_MESSAGE" | grep -qE '^fix(\(.+\))?:'; then
-
             PATCH=$((PATCH + 1))
 
-          # ------------------------------------------------------
+          # ----------------------------------------------------
           # NO RELEASE
-          # ------------------------------------------------------
+          # ----------------------------------------------------
 
           else
-
             echo "No release-worthy Conventional Commit found."
 
             echo "released=false" >> "$GITHUB_OUTPUT"
@@ -184,7 +179,6 @@ jobs:
             echo "tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
 
             exit 0
-
           fi
 
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
@@ -200,23 +194,20 @@ jobs:
           echo "tag=$NEW_TAG"
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # CREATE GIT TAG
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Create Git tag
         if: steps.version.outputs.released == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: |
+          TAG: ${{ steps.version.outputs.tag }}
 
+        run: |
           set -e
 
-          TAG="v${VERSION}"
-
-          echo "Creating Git tag:"
-          echo "VERSION=$VERSION"
-          echo "TAG=$TAG"
+          echo "Creating Git tag: $TAG"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -231,22 +222,21 @@ jobs:
           git push origin "$TAG"
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # CREATE GITHUB RELEASE
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Create GitHub Release
         if: steps.version.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
-        run: |
 
+        run: |
           set -e
 
-          TAG="v${VERSION}"
-
-          echo "Creating GitHub Release $TAG"
+          echo "Creating GitHub Release: $TAG"
 
           gh release create "$TAG" \
             --title "Release $VERSION" \
@@ -268,9 +258,9 @@ jobs:
 
     steps:
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # CHECKOUT MAIN
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Checkout main branch
         uses: actions/checkout@v5
@@ -279,17 +269,17 @@ jobs:
           fetch-depth: 0
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # SETUP DOCKER BUILDX
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # DOCKER HUB LOGIN
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -298,9 +288,9 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # BUILD + PUSH BACKEND
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Build and Push Backend
         uses: docker/build-push-action@v6
@@ -316,9 +306,9 @@ jobs:
           cache-to: type=gha,mode=max
 
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # BUILD + PUSH FRONTEND
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v6
@@ -334,16 +324,15 @@ jobs:
           cache-to: type=gha,mode=max
 
 
-      # ==========================================================
+      # ========================================================
       # GITOPS — UPDATE KUBERNETES IMAGE TAGS
-      # ==========================================================
+      # ========================================================
 
       - name: Update Kubernetes image versions
         env:
           VERSION: ${{ needs.release.outputs.version }}
 
         run: |
-
           set -e
 
           echo "Updating Kubernetes images to version ${VERSION}"
@@ -365,16 +354,15 @@ jobs:
           grep "image:" k8s/frontend/deployment.yaml
 
 
-      # ==========================================================
+      # ========================================================
       # COMMIT + PUSH GITOPS CHANGE
-      # ==========================================================
+      # ========================================================
 
       - name: Commit and Push GitOps update
         env:
           VERSION: ${{ needs.release.outputs.version }}
 
         run: |
-
           set -e
 
           git config user.name "github-actions[bot]"
@@ -398,3 +386,4 @@ jobs:
           echo "GitOps update pushed successfully."
           echo "Version: ${VERSION}"
           echo "=========================================="
+```
