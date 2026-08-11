@@ -4,7 +4,6 @@ metadata:
   name: mess-frontend
   namespace: mess-system
   annotations:
-    gitops-test: "v2"
 spec:
   replicas: 1
   selector:
