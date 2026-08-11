@@ -1,29 +1,51 @@
+output "aws_region" {
+  value = var.aws_region
+}
+
 output "cluster_name" {
-  description = "EKS cluster name"
-  value       = module.eks.cluster_name
+  value = module.eks.cluster_name
 }
 
 output "cluster_endpoint" {
-  description = "EKS API endpoint"
-  value       = module.eks.cluster_endpoint
+  value = module.eks.cluster_endpoint
 }
 
-output "cluster_region" {
-  description = "AWS region"
-  value       = var.aws_region
+output "cluster_arn" {
+  value = module.eks.cluster_arn
 }
 
 output "vpc_id" {
-  description = "VPC ID"
-  value       = module.vpc.vpc_id
+  value = module.vpc.vpc_id
 }
 
 output "private_subnets" {
-  description = "Private subnet IDs"
-  value       = module.vpc.private_subnets
+  value = module.vpc.private_subnets
 }
 
-output "node_security_group_id" {
-  description = "EKS node security group"
-  value       = module.eks.node_security_group_id
+output "public_subnets" {
+  value = module.vpc.public_subnets
+}
+
+output "backend_ecr_repository" {
+  value = aws_ecr_repository.backend.repository_url
+}
+
+output "frontend_ecr_repository" {
+  value = aws_ecr_repository.frontend.repository_url
+}
+
+output "lambda_function_name" {
+  value = aws_lambda_function.mess.function_name
+}
+
+output "grafana_namespace" {
+  value = helm_release.kube_prometheus_stack.namespace
+}
+
+output "grafana_service" {
+  value = "monitoring-grafana"
+}
+
+output "configure_kubectl" {
+  value = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
