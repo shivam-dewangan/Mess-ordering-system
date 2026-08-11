@@ -4,7 +4,7 @@ metadata:
   name: mess-backend
   namespace: mess-system
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: mess-backend
