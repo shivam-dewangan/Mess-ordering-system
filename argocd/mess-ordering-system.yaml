@@ -12,7 +12,6 @@ spec:
     repoURL: https://github.com/shivam-dewangan/Mess-ordering-system.git
     targetRevision: main
     path: k8s
-
     directory:
       recurse: true
 
